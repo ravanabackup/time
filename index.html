@@ -191,9 +191,21 @@
                 </div>
 
                 <div class="stat-card">
+                    <div class="stat-icon">💼</div>
+                    <div class="stat-label">Office Hours</div>
+                    <div class="stat-value" id="office-countdown">-</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="office-progress-bar"></div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
                     <div class="stat-icon">🕒</div>
                     <div class="stat-label">Time Until Monday</div>
                     <div class="stat-value" id="monday-countdown">-</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="monday-progress-bar"></div>
+                    </div>
                 </div>
 
                 <div class="stat-card">
@@ -230,6 +242,12 @@
         const BIRTHDAY_MONTH = 2; // March (0-based)
         const BIRTHDAY_DAY = 13;
         const THEME_START_DAYS_BEFORE = 7;
+        
+        // Office hours configuration
+        const OFFICE_START_HOUR = 9;
+        const OFFICE_START_MINUTE = 30;
+        const OFFICE_END_HOUR = 17;
+        const OFFICE_END_MINUTE = 0;
 
         function formatTime(hours, minutes, seconds) {
             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -264,7 +282,6 @@
             const themeStartDate = new Date(birthday);
             themeStartDate.setDate(birthday.getDate() - THEME_START_DAYS_BEFORE);
             
-            // If we're past this year's birthday, check against next year's dates
             if (now > birthday) {
                 birthday.setFullYear(birthday.getFullYear() + 1);
                 themeStartDate.setFullYear(themeStartDate.getFullYear() + 1);
@@ -292,6 +309,14 @@
             return nextMonday;
         }
 
+        function getCurrentMonday() {
+            const now = new Date();
+            const monday = new Date();
+            monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+            monday.setHours(9, 0, 0, 0);
+            return monday;
+        }
+
         function getStartOfWeek(date) {
             const startOfWeek = new Date(date);
             const day = startOfWeek.getDay();
@@ -309,6 +334,16 @@
 
         function calculateProgress(current, start, end) {
             return ((current - start) / (end - start)) * 100;
+        }
+
+        function getOfficeHours(date) {
+            const start = new Date(date);
+            start.setHours(OFFICE_START_HOUR, OFFICE_START_MINUTE, 0, 0);
+            
+            const end = new Date(date);
+            end.setHours(OFFICE_END_HOUR, OFFICE_END_MINUTE, 0, 0);
+            
+            return { start, end };
         }
 
         function updateDashboard() {
@@ -343,10 +378,31 @@
             document.getElementById('today-countdown').textContent = formatDuration(timeLeftToday);
             document.getElementById('today-progress-bar').style.width = `${dayProgress}%`;
 
-            // Time until next Monday
+            // Office hours
+            const officeHours = getOfficeHours(now);
+            const officeEl = document.getElementById('office-countdown');
+            const officeProgressBar = document.getElementById('office-progress-bar');
+
+            if (now < officeHours.start) {
+                officeEl.textContent = `Starts in ${formatDuration(officeHours.start - now)}`;
+                officeProgressBar.style.width = '0%';
+            } else if (now > officeHours.end) {
+                officeEl.textContent = 'Office Hours Ended';
+                officeProgressBar.style.width = '100%';
+            } else {
+                const timeLeftInOffice = officeHours.end - now;
+                const officeProgress = calculateProgress(now, officeHours.start, officeHours.end);
+                officeEl.textContent = `${formatDuration(timeLeftInOffice)} remaining`;
+                officeProgressBar.style.width = `${officeProgress}%`;
+            }
+
+            // Time until Monday
             const nextMonday = getNextMonday();
+            const currentMonday = getCurrentMonday();
             const timeUntilMonday = nextMonday - now;
+            const mondayProgress = calculateProgress(now, currentMonday, nextMonday);
             document.getElementById('monday-countdown').textContent = formatDuration(timeUntilMonday);
+            document.getElementById('monday-progress-bar').style.width = `${mondayProgress}%`;
 
             // Week Progress (Monday to Sunday)
             const startOfWeek = getStartOfWeek(now);
@@ -369,6 +425,7 @@
             const yearProgress = calculateProgress(now, startOfYear, endOfYear);
             document.getElementById('year-progress').textContent = `${yearProgress.toFixed(1)}%`;
             document.getElementById('year-progress-bar').style.width = `${yearProgress}%`;
+            
         }
 
         // Update immediately and then every second
